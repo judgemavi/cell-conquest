@@ -1,0 +1,18 @@
+{
+  "name": "crons",
+  "version": "1.0.50",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --target bun --outfile dist/index.js"
+  },
+  "dependencies": {
+    "@repo/utils": "*",
+    "cron": "^3.1.7",
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "@repo/types": "*"
+  }
+}

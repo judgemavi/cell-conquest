@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  load_balancer:
+    image: haproxy
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - nginx
+      - services
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./apps/web/dist:/usr/share/nginx/html/apps/cell-conquest:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - services
+    networks:
+      - app_network
+    deploy:
+      replicas: 2
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost/']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  services:
+    image: oven/bun
+    user: "1000:1000"
+    working_dir: /app
+    volumes:
+      - ./apps/services/dist:/app:ro
+    env_file:
+      - ./apps/services/.env
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    command: ['bun', 'run', '/app/index.js']
+    networks:
+      - app_network
+    deploy:
+      replicas: 2
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  crons:
+    image: oven/bun
+    user: "1000:1000"
+    working_dir: /app
+    volumes:
+      - ./apps/crons/dist:/app:ro
+    env_file:
+      - ./apps/crons/.env
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    command: ['bun', 'run', '/app/index.js']
+    networks:
+      - app_network
+
+  redis:
+    image: redis:alpine
+    command: ['redis-server', '--port', '6379']
+    volumes:
+      - redis-data:/data
+    networks:
+      - app_network
+
+  cloudflare-ddns:
+    image: oznu/cloudflare-ddns:latest
+    env_file:
+      - .env.cloudflare
+    restart: unless-stopped
+    networks:
+      - app_network
+
+  autoscaler:
+    image: alpine:latest
+    volumes:
+      - ./autoscaler.sh:/autoscaler.sh:ro
+    environment:
+      - MIN_INSTANCES=2
+      - MAX_INSTANCES=10
+      - CPU_THRESHOLD=70
+      - MEMORY_THRESHOLD=70
+      - STORAGE_DRIVER=${STORAGE_DRIVER:-vfs}
+      - MOUNT_PROGRAM=${MOUNT_PROGRAM:-/usr/bin/fuse-overlayfs}
+    command: >
+      sh -c "
+        apk add --no-cache bash podman python3 py3-pip &&
+        python3 -m venv /venv &&
+        . /venv/bin/activate &&
+        pip install podman-compose &&
+        bash /autoscaler.sh
+      "
+    network_mode: 'host'
+    pid: 'host'
+    privileged: true
+    depends_on:
+      - nginx
+      - services
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  redis-data:
