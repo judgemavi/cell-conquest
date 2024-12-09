@@ -36,7 +36,7 @@ const Home = () => {
       .find((cookie) => cookie.startsWith('sessionToken='))
       ?.split('=')[1];
     const ws = new WebSocket(
-      `ws${import.meta.env.VITE_SECURE ? 's': ''}://${window.location.host}${import.meta.env.VITE_BASE_PATH}ws/${sessionToken ? `player?sessionToken=${sessionToken}` : 'guest'}`
+      `ws${import.meta.env.VITE_SECURE ? 's': ''}://${window.location.host}/ws/${sessionToken ? `player?sessionToken=${sessionToken}` : 'guest'}`
     );
     wsRef.current = ws;
     ws.onmessage = (ev) => {

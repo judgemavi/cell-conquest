@@ -8,7 +8,6 @@ const router = createRouter({
   context: {
     guest: true,
   },
-  basepath: import.meta.env.VITE_BASE_PATH,
 });
 declare module "@tanstack/react-router" {
   interface Register {
